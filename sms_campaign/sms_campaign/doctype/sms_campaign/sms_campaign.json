@@ -11,6 +11,7 @@
   "identifier",
   "trigger_type",
   "trigger_doctype",
+  "new_value",
   "column_break_ilxuj",
   "channel",
   "active",
@@ -207,14 +208,19 @@
    "depends_on": "eval:doc.channel=='Email'",
    "fieldname": "email_subject",
    "fieldtype": "Data",
-   "label": "Email Subject ",
-   "mandatory_depends_on": "eval:doc.channel=='Email'"
+   "label": "Email Subject "
+  },
+  {
+   "depends_on": "eval:doc.trigger==\"Value Change\"",
+   "fieldname": "new_value",
+   "fieldtype": "Data",
+   "label": "To Value"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-01-02 14:57:22.970258",
+ "modified": "2025-01-03 04:13:09.574599",
  "modified_by": "Administrator",
  "module": "Sms Campaign",
  "name": "SMS Campaign",

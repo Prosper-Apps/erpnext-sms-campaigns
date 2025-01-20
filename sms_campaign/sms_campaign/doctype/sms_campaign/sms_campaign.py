@@ -111,19 +111,14 @@ class SMSCampaign(Document):
 				parameters=parameters,
 				template=self.message
 			)
-			frappe.msgprint("The send sms job has been queued")
 		else:
-			frappe.enqueue(
-				"sms_campaign.sms_campaign.queue.send_email_queued",
-				queue="default",
-				timeout=4000,
+			send_email(
 				query=query,
 				parameters=parameters,
 				template=self.message,
 				subject=self.email_subject,
-				attachements=self.attachments,
+				attachments=self.attachments,
 			)
-			frappe.msgprint("The send sms job has been queued")
 
 		# data = frappe.db.sql(query.query, parameters, as_dict=True)
 		# for row in data:
@@ -196,7 +191,6 @@ def send_triggered_on_cancel_sms(doc, method=None):
 
 
 def send_triggered_on_update_sms(doc, method=None):
-	#print("Triggered on update")
 	sms_campaigns = frappe.get_all("SMS Campaign", filters={"trigger_type": "TRIGGERED", "docstatus": 1, "active":1, "trigger": "Update", "trigger_doctype": doc.doctype})
 	for sms_campaign in sms_campaigns:
 		sms_campaign = frappe.get_doc("SMS Campaign", sms_campaign.name)
@@ -204,11 +198,8 @@ def send_triggered_on_update_sms(doc, method=None):
 		sms_campaign.send_triggered_sms(doc.name)
 		
 
-	#print(doc.doctype)
 	sms_campaigns = frappe.get_all("SMS Campaign", filters={"trigger_type": "TRIGGERED", "docstatus": 1, "active":1, "trigger": "Value Change", "trigger_doctype": doc.doctype})
-	#print(sms_campaigns)
 	for sms_campaign in sms_campaigns:
-		#print("trying to send sms right here: ")
 		campaign = frappe.get_doc("SMS Campaign", sms_campaign.name)
 		
 		if frappe.db.has_column(doc.doctype, campaign.value_changed):
@@ -219,8 +210,6 @@ def send_triggered_on_update_sms(doc, method=None):
 			if cast(fieldtype, doc.get(campaign.value_changed)) == cast(fieldtype, field_value_before_save):
 				# value not changed
 				return
-			#print("trying to send sms right here: ")
-			#print(doc.get(campaign.value_changed))
 			if doc.get(campaign.value_changed) == campaign.new_value or not campaign.new_value or campaign.new_value == "":
 				campaign.send_triggered_sms(doc.name)
 
@@ -235,3 +224,40 @@ def eval_condition(campaign):
 	return True
 
 			
+def send_email(query, parameters, template, subject, attachments):
+    data = frappe.db.sql(query.query, parameters, as_dict=True)
+    for row in data:
+        email = row[query.recepient_field]
+        msg=frappe.render_template(template, get_context(row))
+        subj = frappe.render_template(subject, get_context(row))
+
+        attachs = []
+
+        for att in attachments:
+            if att.type == 'File':
+                files = frappe.get_all("File", filters ={"file_url": row[att.file_url_field]})
+
+                if len(files) > 0:
+                    file = file[0]
+                    file_doc = frappe.get_doc("File", file.name)
+
+
+                    filename = file_doc.file_name
+
+                    file_path = frappe.utils.get_site_path("", file_doc.file_url.lstrip("/"))
+                    with open(file_path, "rb") as file_content:
+                        attachs.append({"fcontent": file_content.read(), "fname": filename})
+            else:
+                attachs.append({frappe.attach_print(att.print_doctype, row[att.name_query_field], file_name=row[att.name_query_field])})
+
+        
+        
+        if email:
+            receiver_list = [email]
+            frappe.sendmail(
+                recipients=receiver_list,
+                message=msg,
+                subject=subj,
+                attachments=attachs,
+            )
+            frappe.db.commit()
